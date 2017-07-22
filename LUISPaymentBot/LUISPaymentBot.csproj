@@ -120,6 +120,7 @@
     <Compile Include="Dialogs\AccountDialog.cs" />
     <Compile Include="Dialogs\LoginDialog.cs" />
     <Compile Include="Dialogs\RootDialog.cs" />
+    <Compile Include="Enums\PaymentType.cs" />
     <Compile Include="Enums\ProfileType.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>

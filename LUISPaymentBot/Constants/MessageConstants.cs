@@ -29,12 +29,14 @@ namespace LUISPaymentBot.Constants
 
         public const string PleaseWait = "Please wait we are retreiving the information";
 
-        public const string BillAmount = "Your bill amount {0}";
+        public const string BillAmount = "Your bill amount is {0} and Due Date is {1}";
 
         public const string PaymentSuccess = "Your payment is successfull. Please save your approval code {0} for future reference";
 
         public const string PaymentDeclined = "Your payment has been declined";
 
         public const string DueAmount = "You don't have dues to pay";
+
+        public const string OutageQurey = "?mbrsep={0}&location={1}";
     }
 }

@@ -15,10 +15,10 @@ namespace LUISPaymentBot.Queries
         public string Mbrsep { get; set; }
 
         [Prompt("Please select profile {&}. {||}")]
-        [Describe("Profile Type")]
+        [Describe("type")]
         public ProfileType ProfileType { get; set; }
 
-        [Prompt("{&}Would you like to pay full amount?{||}")]
+        [Prompt("Would you like to pay full amount?{||}")]
         public bool FullPayment { get; set; }
 
         [Prompt("Please enter your {&}.")]

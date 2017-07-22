@@ -12,5 +12,7 @@ namespace LUISPaymentBot.Queries
         [Prompt("Please enter your {&}.")]
         [Describe("Account Number")]
         public string Mbrsep { get; set; }
+
+        public string Location { get; set; }
     }
 }

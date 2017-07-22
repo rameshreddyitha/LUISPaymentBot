@@ -18,6 +18,7 @@ using Newtonsoft.Json;
 using LUISPaymentBot.Enums;
 using LUISPaymentBot.Constants;
 using Microsoft.Bot.Builder.FormFlow.Advanced;
+using System.Xml;
 
 namespace LUISPaymentBot.Dialogs
 {
@@ -46,7 +47,7 @@ namespace LUISPaymentBot.Dialogs
                 || result.Query.Equals("Cancel", StringComparison.CurrentCultureIgnoreCase)
                 || result.Query.Equals("Exit", StringComparison.CurrentCultureIgnoreCase))
             {
-                await context.PostAsync("Thanks for using SEDC Account Manager.");
+                await context.PostAsync("Thanks for using Utility Service Desk");
                 context.Done<object>(null);
             }
             else
@@ -62,7 +63,7 @@ namespace LUISPaymentBot.Dialogs
         public async Task GetDueDate(IDialogContext context, IAwaitable<IMessageActivity> activity, LuisResult result)
         {
             var message = await activity;
-            await context.PostAsync($"Please wait we are retreiving the information");
+            await context.PostAsync(MessageConstants.PleaseWait);
 
             EntityRecommendation entityRecommendation;
             AccountQuery accountQuery = new AccountQuery();
@@ -74,6 +75,7 @@ namespace LUISPaymentBot.Dialogs
             else
             {
                 accountQuery.Mbrsep = this.loginInformation.MbrSep;
+                accountQuery.Location = this.loginInformation.Location;
             }
 
             var formDailog = new FormDialog<AccountQuery>(accountQuery, null, FormOptions.PromptInStart, result.Entities);
@@ -199,6 +201,7 @@ namespace LUISPaymentBot.Dialogs
             else
             {
                 accountQuery.Mbrsep = this.loginInformation.MbrSep;
+                accountQuery.Location = this.loginInformation.Location;
             }
 
             var formDailog = new FormDialog<AccountQuery>(accountQuery, null, FormOptions.PromptInStart, result.Entities);
@@ -263,7 +266,6 @@ namespace LUISPaymentBot.Dialogs
                     HeroCard heroCard = new HeroCard()
                     {
                         Title = accountInfo.Mbrsep,
-                        Subtitle = $"Last paid bill details.",
                         Text = $"Last Paid Amount: {accountInfo.LastPayment}, Last Paid Date: {accountInfo.PaidDate}"
                     };
 
@@ -329,9 +331,10 @@ namespace LUISPaymentBot.Dialogs
             else
             {
                 paymentQuery.Mbrsep = this.loginInformation.MbrSep;
+                paymentQuery.BillAmount = this.loginInformation.AmountDue;
                 paymentQuery.ProfileType = (this.loginInformation.Echeck && this.loginInformation.CreditCard) ? paymentQuery.ProfileType : this.loginInformation.Echeck ? ProfileType.ECheck : ProfileType.CreditCard;
                 await context.PostAsync(MessageConstants.PleaseWait);
-                await context.PostAsync(string.Format(MessageConstants.BillAmount, this.loginInformation.AmountDue));
+                await context.PostAsync(string.Format(MessageConstants.BillAmount, this.loginInformation.AmountDue, this.loginInformation.DueDate));
 
                 EntityRecommendation entityRecommendation;
 
@@ -365,10 +368,16 @@ namespace LUISPaymentBot.Dialogs
                 .Field(nameof(PaymentQuery.ProfileType))
                 .Field(new FieldReflector<PaymentQuery>("FullPayment")
                 .SetType(typeof(bool))
-                .SetFieldDescription(new DescribeAttribute(this.loginInformation.AmountDue))
                 .SetValidate(FullPaymentValidate))
                 .Field(nameof(PaymentQuery.BillAmount), (state) => string.IsNullOrEmpty(state.BillAmount))
                 .Build();
+        }
+
+        private Task<ValidateResult> billAmountValidate(PaymentQuery state, object value)
+        {
+            ValidateResult result = new ValidateResult() { IsValid = true };
+            state.BillAmount = this.loginInformation.AmountDue;
+            return Task.FromResult(result);
         }
 
         private Task<ValidateResult> FullPaymentValidate(PaymentQuery state, object value)
@@ -453,6 +462,93 @@ namespace LUISPaymentBot.Dialogs
                 //context.Done<object>(null);
             }
         }
+
+        #endregion
+
+        #region Outage
+
+        [LuisIntent("Outage")]
+        public async Task DoOutage(IDialogContext context, IAwaitable<IMessageActivity> activity, LuisResult result)
+        {
+            var message = await activity;
+            await context.PostAsync(MessageConstants.PleaseWait);
+
+            EntityRecommendation entityRecommendation;
+            AccountQuery accountQuery = new AccountQuery();
+            if (result.TryFindEntity("Mbrsep", out entityRecommendation))
+            {
+                entityRecommendation.Type = "Mbrsep";
+                entityRecommendation.Entity = accountQuery.Mbrsep;
+            }
+            else
+            {
+                accountQuery.Mbrsep = this.loginInformation.MbrSep;
+            }
+            if (result.TryFindEntity("Location", out entityRecommendation))
+            {
+                entityRecommendation.Type = "Location";
+                entityRecommendation.Entity = accountQuery.Location;
+            }
+            else
+            {
+                accountQuery.Location = this.loginInformation.Location;
+            }
+
+            var formDailog = new FormDialog<AccountQuery>(accountQuery, null, FormOptions.PromptInStart, result.Entities);
+
+            context.Call(formDailog, this.ResumeAfterOutageFormDialog);
+        }
+
+        private async Task ResumeAfterOutageFormDialog(IDialogContext context, IAwaitable<AccountQuery> result)
+        {
+            try
+            {
+                var searchQuery = await result;
+
+                var outageInfo = await this.DoOutageAsync(searchQuery);
+
+                XmlDocument doc = new XmlDocument();
+                doc.LoadXml(outageInfo);
+                string response = doc.SelectSingleNode("//edit") != null ? doc.SelectSingleNode("//edit").InnerText : doc.SelectSingleNode("//output") != null
+                    ? "Outage created successfull." : string.Empty;
+
+                await context.PostAsync(response);
+            }
+            catch (FormCanceledException ex)
+            {
+                string reply;
+
+                if (ex.InnerException == null)
+                {
+                    reply = "You have canceled the operation.";
+                }
+                else
+                {
+                    reply = $"Oops! Something went wrong   Technical Details: {ex.InnerException.Message}";
+                }
+
+                await context.PostAsync(reply);
+            }
+            finally
+            {
+                context.Wait(MessageReceived);
+                //context.Done<object>(null);
+            }
+        }
+
+        private async Task<string> DoOutageAsync(AccountQuery outageQuery)
+        {
+            HttpClient client = GetClient();
+            HttpResponseMessage response = await client.GetAsync(ConfigurationManager.AppSettings["Outage"].ToString() +
+                string.Format(MessageConstants.OutageQurey, outageQuery.Mbrsep, outageQuery.Location));
+            object result = null;
+            if (response.IsSuccessStatusCode)
+            {
+                result = await response.Content.ReadAsAsync<object>();
+            }
+            return result.ToString();
+        }
+
 
         #endregion
 
