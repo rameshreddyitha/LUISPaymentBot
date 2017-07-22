@@ -10,11 +10,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
-using LUISPaymentBot.Models.Queries;
+using LUISPaymentBot.Queries;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Configuration;
 using Newtonsoft.Json;
+using LUISPaymentBot.Enums;
+using LUISPaymentBot.Constants;
+using Microsoft.Bot.Builder.FormFlow.Advanced;
 
 namespace LUISPaymentBot.Dialogs
 {
@@ -22,12 +25,35 @@ namespace LUISPaymentBot.Dialogs
     [Serializable]
     public class AccountDialog : LuisDialog<object>
     {
+        private AuthenticateResponse loginInformation;
+        public AccountDialog(AuthenticateResponse loginInformation)
+        {
+            this.loginInformation = loginInformation;
+        }
+
         [LuisIntent("")]
         [LuisIntent("None")]
         public async Task None(IDialogContext context, LuisResult result)
         {
-            await context.PostAsync("I'm sorry. I didn't understand you.");
-            context.Wait(MessageReceived);
+            if (result.Query.Equals("Stop", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Halt", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Quit", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("End", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Break", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Close", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Terminate", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Finish", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Cancel", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Exit", StringComparison.CurrentCultureIgnoreCase))
+            {
+                await context.PostAsync("Thanks for using SEDC Account Manager.");
+                context.Done<object>(null);
+            }
+            else
+            {
+                await context.PostAsync("I'm sorry. I didn't understand you.");
+                context.Wait(MessageReceived);
+            }
         }
 
         #region GetDueDate
@@ -36,8 +62,8 @@ namespace LUISPaymentBot.Dialogs
         public async Task GetDueDate(IDialogContext context, IAwaitable<IMessageActivity> activity, LuisResult result)
         {
             var message = await activity;
-            await context.PostAsync($"Please wait we are providing requested information.");         
-            
+            await context.PostAsync($"Please wait we are retreiving the information");
+
             EntityRecommendation entityRecommendation;
             AccountQuery accountQuery = new AccountQuery();
             if (result.TryFindEntity("Mbrsep", out entityRecommendation))
@@ -45,11 +71,15 @@ namespace LUISPaymentBot.Dialogs
                 entityRecommendation.Type = "Mbrsep";
                 entityRecommendation.Entity = accountQuery.Mbrsep;
             }
+            else
+            {
+                accountQuery.Mbrsep = this.loginInformation.MbrSep;
+            }
 
-            var formDailog = new FormDialog<AccountQuery>(accountQuery, this.BuildDueAmountForm, FormOptions.PromptInStart, result.Entities);
+            var formDailog = new FormDialog<AccountQuery>(accountQuery, null, FormOptions.PromptInStart, result.Entities);
 
             context.Call(formDailog, this.ResumeAfterDueAmountFormDialog);
-           
+
         }
 
         private IForm<AccountQuery> BuildDueAmountForm()
@@ -80,13 +110,13 @@ namespace LUISPaymentBot.Dialogs
                 object result = await response.Content.ReadAsAsync<object>();
                 account = JsonConvert.DeserializeObject<AccountInfo>(result.ToString());
             }
-            if(account==null)
+            if (account == null)
             {
                 account = new AccountInfo();
                 account.Error = "Sorry...,details not found our database.";
             }
             account.Mbrsep = searchQuery.Mbrsep;
-            
+
 
             return account;
         }
@@ -108,7 +138,6 @@ namespace LUISPaymentBot.Dialogs
                     HeroCard heroCard = new HeroCard()
                     {
                         Title = accountInfo.Mbrsep,
-                        Subtitle = $"Due Amount details.",
                         Text = $"Due Amount: {accountInfo.AmountDue}, Due Date: {accountInfo.DueDate}"
                     };
 
@@ -145,7 +174,8 @@ namespace LUISPaymentBot.Dialogs
             }
             finally
             {
-                context.Done<object>(null);
+                context.Wait(MessageReceived);
+                //context.Done<object>(null);
             }
         }
 
@@ -157,7 +187,7 @@ namespace LUISPaymentBot.Dialogs
         public async Task GetLastPaidBill(IDialogContext context, IAwaitable<IMessageActivity> activity, LuisResult result)
         {
             var message = await activity;
-            await context.PostAsync($"Please wait we are providing requested information.");
+            await context.PostAsync($"Please wait we are retreiving the information");
 
             EntityRecommendation entityRecommendation;
             AccountQuery accountQuery = new AccountQuery();
@@ -166,8 +196,12 @@ namespace LUISPaymentBot.Dialogs
                 entityRecommendation.Type = "Mbrsep";
                 entityRecommendation.Entity = accountQuery.Mbrsep;
             }
+            else
+            {
+                accountQuery.Mbrsep = this.loginInformation.MbrSep;
+            }
 
-            var formDailog = new FormDialog<AccountQuery>(accountQuery, this.BuildLastPaidBillForm, FormOptions.PromptInStart, result.Entities);
+            var formDailog = new FormDialog<AccountQuery>(accountQuery, null, FormOptions.PromptInStart, result.Entities);
 
             context.Call(formDailog, this.ResumeAfterLastPaidBillFormDialog);
 
@@ -266,11 +300,161 @@ namespace LUISPaymentBot.Dialogs
             }
             finally
             {
-                context.Done<object>(null);
+                context.Wait(MessageReceived);
+                //context.Done<object>(null);
             }
         }
 
         #endregion GetLastPaid
+
+        #region MakePayment
+
+        [LuisIntent("MakePayment")]
+        public async Task MakePayment(IDialogContext context, IAwaitable<IMessageActivity> activity, LuisResult result)
+        {
+            var message = await activity;
+            decimal amountDue = 0;
+            PaymentQuery paymentQuery = new PaymentQuery();
+
+            if (!this.loginInformation.Echeck && !this.loginInformation.CreditCard)
+            {
+                await context.PostAsync(MessageConstants.NoProfileExist);
+                context.Wait(MessageReceived);
+            }
+            else if (decimal.TryParse(this.loginInformation.AmountDue, out amountDue) && amountDue <= 0)
+            {
+                await context.PostAsync(MessageConstants.DueAmount);
+                context.Wait(MessageReceived);
+            }
+            else
+            {
+                paymentQuery.Mbrsep = this.loginInformation.MbrSep;
+                paymentQuery.ProfileType = (this.loginInformation.Echeck && this.loginInformation.CreditCard) ? paymentQuery.ProfileType : this.loginInformation.Echeck ? ProfileType.ECheck : ProfileType.CreditCard;
+                await context.PostAsync(MessageConstants.PleaseWait);
+                await context.PostAsync(string.Format(MessageConstants.BillAmount, this.loginInformation.AmountDue));
+
+                EntityRecommendation entityRecommendation;
+
+                if (result.TryFindEntity("Mbrsep", out entityRecommendation))
+                {
+                    entityRecommendation.Type = "Mbrsep";
+                    entityRecommendation.Entity = paymentQuery.Mbrsep;
+                }
+                if (result.TryFindEntity("BillAmount", out entityRecommendation))
+                {
+                    entityRecommendation.Type = "BillAmount";
+                    entityRecommendation.Entity = paymentQuery.BillAmount;
+                }
+                if (result.TryFindEntity("ProfileType", out entityRecommendation))
+                {
+                    entityRecommendation.Type = "ProfileType";
+                    entityRecommendation.Entity = paymentQuery.ProfileType.ToString();
+                }
+
+                var formDailog = new FormDialog<PaymentQuery>(paymentQuery, this.PaymentForm, FormOptions.PromptInStart, result.Entities);
+
+                context.Call(formDailog, this.ResumeAfterPaymentFormDialog);
+            }
+        }
+
+        private IForm<PaymentQuery> PaymentForm()
+        {
+            return new FormBuilder<PaymentQuery>()
+                .AddRemainingFields()
+                .Field(nameof(PaymentQuery.Mbrsep), (state) => string.IsNullOrEmpty(state.Mbrsep))
+                .Field(nameof(PaymentQuery.ProfileType))
+                .Field(new FieldReflector<PaymentQuery>("FullPayment")
+                .SetType(typeof(bool))
+                .SetFieldDescription(new DescribeAttribute(this.loginInformation.AmountDue))
+                .SetValidate(FullPaymentValidate))
+                .Field(nameof(PaymentQuery.BillAmount), (state) => string.IsNullOrEmpty(state.BillAmount))
+                .Build();
+        }
+
+        private Task<ValidateResult> FullPaymentValidate(PaymentQuery state, object value)
+        {
+            bool result = (bool)value;
+            state.BillAmount = result ? this.loginInformation.AmountDue : string.Empty;
+            return Task.FromResult(new ValidateResult() { IsValid = true });
+        }
+
+        private async Task<PaymentResponse> DoPaymentAsync(PaymentQuery paymentQuery)
+        {
+            Payment payment = new Payment()
+            {
+                Mbrsep = paymentQuery.Mbrsep.Replace("-", string.Empty),
+                PaymentType = paymentQuery.ProfileType.Equals(ProfileType.ECheck) ? "EC" : "CC",
+                Amount = paymentQuery.BillAmount
+            };
+
+            HttpClient client = GetClient();
+            HttpResponseMessage response = await client.PostAsJsonAsync(ConfigurationManager.AppSettings["PostPayment"].ToString(), payment);
+            PaymentResponse paymentResponse = null;
+            if (response.IsSuccessStatusCode)
+            {
+                object result = await response.Content.ReadAsAsync<object>();
+                paymentResponse = JsonConvert.DeserializeObject<PaymentResponse>(result == null ? string.Empty : result.ToString());
+
+            }
+            return paymentResponse;
+        }
+
+        private async Task ResumeAfterPaymentFormDialog(IDialogContext context, IAwaitable<PaymentQuery> result)
+        {
+            try
+            {
+                var paymentQuery = await result;
+
+                var paymentResponse = await this.DoPaymentAsync(paymentQuery);
+
+                if (paymentResponse != null)
+                {
+                    if (!string.IsNullOrEmpty(paymentResponse.ErrorStringField))
+                    {
+                        string response = "No {0} profile available, Please create profile before making payment.";
+                        if (paymentResponse.ErrorStringField.Equals("No E-Check profile available", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            await context.PostAsync(string.Format(response, "E-Check"));
+                        }
+                        if (paymentResponse.ErrorStringField.Equals("Use profile selected, but no CC profile available.", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            await context.PostAsync(string.Format(response, "Credit Card"));
+                        }
+                    }
+                    if (paymentResponse.DescriptionField.Equals("Declined", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        await context.PostAsync(MessageConstants.PaymentDeclined);
+                    }
+                    if (!string.IsNullOrEmpty(paymentResponse.AuthorizationCodeField) &&
+                        paymentResponse.DescriptionField.Equals("Approved", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        await context.PostAsync(string.Format(MessageConstants.PaymentSuccess, paymentResponse.AuthorizationCodeField));
+                    }
+                }
+            }
+            catch (FormCanceledException ex)
+            {
+                string reply;
+
+                if (ex.InnerException == null)
+                {
+                    reply = "You have canceled the operation.";
+                }
+                else
+                {
+                    reply = $"Oops! Something went wrong :( Technical Details: {ex.InnerException.Message}";
+                }
+
+                await context.PostAsync(reply);
+            }
+            finally
+            {
+                context.Wait(MessageReceived);
+                //context.Done<object>(null);
+            }
+        }
+
+        #endregion
 
         #region Common
         private HttpClient GetClient()

@@ -9,6 +9,7 @@ using System.Web;
 using Microsoft.Bot.Builder.Luis.Models;
 using Microsoft.Bot.Connector;
 using System.Threading;
+using LUISPaymentBot.Constants;
 
 namespace LUISPaymentBot.Dialogs
 {
@@ -17,18 +18,21 @@ namespace LUISPaymentBot.Dialogs
     {
         public async Task StartAsync(IDialogContext context)
         {
+            await context.PostAsync(MessageConstants.WelcomeMsg);
             context.Wait(this.MessageReceivedAsync);
         }
 
         private async Task MessageReceivedAsync(IDialogContext context, IAwaitable<IMessageActivity> result)
         {
-            PromptDialog.Choice(
-               context,
-               this.AfterChoiceSelected,
-               new[] { "SEDC_Payments", "EmployeeLeaves" },
-               "What service would like to select?",
-               "I am sorry but I didn't understand that. Please select one of the options.",
-               attempts: 2);
+            //await context.PostAsync(MessageConstants.WelcomeMsg);
+            context.Call(new LoginDialog(0), this.ResumeLoginSuccess);
+            //PromptDialog.Choice(
+            //   context,
+            //   this.AfterChoiceSelected,
+            //   new[] { MessageConstants.PaymentIntent, MessageConstants.LeaveIntent },
+            //   MessageConstants.ServiceSelection,
+            //   MessageConstants.IncorrectServiceSelection,
+            //   attempts: 2);
         }
 
         private async Task AfterChoiceSelected(IDialogContext context, IAwaitable<string> result)
@@ -39,20 +43,44 @@ namespace LUISPaymentBot.Dialogs
 
                 switch (selection)
                 {
-                    case "EmployeeLeaves":
-                        await context.PostAsync("This functionality is not yet implemented!");
+                    case MessageConstants.LeaveIntent:
+                        await context.PostAsync(MessageConstants.NotImplemted);
                         await this.StartAsync(context);
                         break;
 
-                    case "SEDC_Payments":
-                        await context.PostAsync("Welcome to account manager.");
-                        context.Forward(new AccountDialog(), this.ResumeScheduler, context.Activity, CancellationToken.None);
+                    case MessageConstants.PaymentIntent:
+                        await context.PostAsync(MessageConstants.WelcomeMsg);
+                        context.Call(new LoginDialog(0), this.ResumeLoginSuccess);
                         break;
                 }
             }
             catch (TooManyAttemptsException)
             {
                 await this.StartAsync(context);
+            }
+        }
+
+        private async Task ResumeLoginSuccess(IDialogContext context, IAwaitable<object> result)
+        {
+            try
+            {
+                bool message = (bool)await result;
+
+                AuthenticateResponse loginInfo = null;
+                if (!context.UserData.TryGetValue((context.Activity.Id + context.Activity.From.Id), out loginInfo))
+                {
+                    context.Call(new LoginDialog(1), this.ResumeLoginSuccess);
+                }
+                else
+                {
+                    await context.PostAsync(string.Format(MessageConstants.Authenticated, loginInfo.Name));
+                    await context.PostAsync(MessageConstants.ServicesInformation);
+                    context.Forward(new AccountDialog(loginInfo), this.ResumeScheduler, context.Activity, CancellationToken.None);
+                }
+            }
+            catch (Exception ex)
+            {
+                context.Call(new LoginDialog(1), this.ResumeLoginSuccess);
             }
         }
 
@@ -71,21 +99,5 @@ namespace LUISPaymentBot.Dialogs
                 context.Wait(this.MessageReceivedAsync);
             }
         }
-
-        //private static IForm<ScheduleInformation> BuildForm()
-        //{
-        //    var builder = new FormBuilder<ScheduleInformation>();
-        //    return builder
-        //        .AddRemainingFields()
-        //        .Field("Location", validate: ScheduleInfoValidations.ValidateLocation)
-        //        .Field("Start", validate: ScheduleInfoValidations.ValidateStart)
-        //        .Field("End", validate: ScheduleInfoValidations.ValidateEnd)
-        //        .Build();
-        //}
-
-        //internal static IDialog<ScheduleInformation> MakeRoot()
-        //{
-        //    return Chain.From(() => new AccountDialog());
-        //}
     }
 }

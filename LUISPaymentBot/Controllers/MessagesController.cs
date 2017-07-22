@@ -1,4 +1,5 @@
-﻿using LUISPaymentBot.Dialogs;
+﻿using LUISPaymentBot.Constants;
+using LUISPaymentBot.Dialogs;
 using LUISPaymentBot.Models;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.FormFlow;

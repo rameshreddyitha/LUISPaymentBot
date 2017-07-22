@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 
-namespace LUISPaymentBot.Models.Queries
+namespace LUISPaymentBot.Queries
 {
     [Serializable]
     public class AccountQuery

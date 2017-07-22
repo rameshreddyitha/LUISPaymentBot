@@ -24,5 +24,6 @@ namespace LUISPaymentBot.Models
         public bool ECExists { get; set; }
 
         public string Error { get; set; }
+
     }
 }
