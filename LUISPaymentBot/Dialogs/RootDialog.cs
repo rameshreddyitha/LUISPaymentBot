@@ -39,20 +39,20 @@ namespace LUISPaymentBot.Dialogs
         {
             try
             {
-                var selection = await result;
+                //var selection = await result;
 
-                switch (selection)
-                {
-                    case MessageConstants.LeaveIntent:
-                        await context.PostAsync(MessageConstants.NotImplemted);
-                        await this.StartAsync(context);
-                        break;
+                //switch (selection)
+                //{
+                //    case MessageConstants.LeaveIntent:
+                //        await context.PostAsync(MessageConstants.NotImplemted);
+                //        await this.StartAsync(context);
+                //        break;
 
-                    case MessageConstants.PaymentIntent:
-                        await context.PostAsync(MessageConstants.WelcomeMsg);
-                        context.Call(new LoginDialog(0), this.ResumeLoginSuccess);
-                        break;
-                }
+                //    case MessageConstants.PaymentIntent:
+                //        await context.PostAsync(MessageConstants.WelcomeMsg);
+                //        context.Call(new LoginDialog(0), this.ResumeLoginSuccess);
+                //        break;
+                //}
             }
             catch (TooManyAttemptsException)
             {

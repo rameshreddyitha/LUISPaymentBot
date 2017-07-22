@@ -41,13 +41,14 @@ namespace LUISPaymentBot.Dialogs
                 || result.Query.Equals("Quit", StringComparison.CurrentCultureIgnoreCase)
                 || result.Query.Equals("End", StringComparison.CurrentCultureIgnoreCase)
                 || result.Query.Equals("Break", StringComparison.CurrentCultureIgnoreCase)
+                || result.Query.Equals("Bye", StringComparison.CurrentCultureIgnoreCase)
                 || result.Query.Equals("Close", StringComparison.CurrentCultureIgnoreCase)
                 || result.Query.Equals("Terminate", StringComparison.CurrentCultureIgnoreCase)
                 || result.Query.Equals("Finish", StringComparison.CurrentCultureIgnoreCase)
                 || result.Query.Equals("Cancel", StringComparison.CurrentCultureIgnoreCase)
                 || result.Query.Equals("Exit", StringComparison.CurrentCultureIgnoreCase))
             {
-                await context.PostAsync("Thanks for using Utility Service Desk");
+                await context.PostAsync(MessageConstants.ThankYou);
                 context.Done<object>(null);
             }
             else
@@ -63,7 +64,7 @@ namespace LUISPaymentBot.Dialogs
         public async Task GetDueDate(IDialogContext context, IAwaitable<IMessageActivity> activity, LuisResult result)
         {
             var message = await activity;
-            await context.PostAsync(MessageConstants.PleaseWait);
+            //await context.PostAsync(MessageConstants.PleaseWait);
 
             EntityRecommendation entityRecommendation;
             AccountQuery accountQuery = new AccountQuery();
@@ -333,7 +334,7 @@ namespace LUISPaymentBot.Dialogs
                 paymentQuery.Mbrsep = this.loginInformation.MbrSep;
                 paymentQuery.BillAmount = this.loginInformation.AmountDue;
                 paymentQuery.ProfileType = (this.loginInformation.Echeck && this.loginInformation.CreditCard) ? paymentQuery.ProfileType : this.loginInformation.Echeck ? ProfileType.ECheck : ProfileType.CreditCard;
-                await context.PostAsync(MessageConstants.PleaseWait);
+                //await context.PostAsync(MessageConstants.PleaseWait);
                 await context.PostAsync(string.Format(MessageConstants.BillAmount, this.loginInformation.AmountDue, this.loginInformation.DueDate));
 
                 EntityRecommendation entityRecommendation;
@@ -471,7 +472,7 @@ namespace LUISPaymentBot.Dialogs
         public async Task DoOutage(IDialogContext context, IAwaitable<IMessageActivity> activity, LuisResult result)
         {
             var message = await activity;
-            await context.PostAsync(MessageConstants.PleaseWait);
+            //await context.PostAsync(MessageConstants.PleaseWait);
 
             EntityRecommendation entityRecommendation;
             AccountQuery accountQuery = new AccountQuery();
@@ -510,7 +511,8 @@ namespace LUISPaymentBot.Dialogs
                 XmlDocument doc = new XmlDocument();
                 doc.LoadXml(outageInfo);
                 string response = doc.SelectSingleNode("//edit") != null ? doc.SelectSingleNode("//edit").InnerText : doc.SelectSingleNode("//output") != null
-                    ? "Outage created successfull." : string.Empty;
+                    ? MessageConstants.OutageSuccess : string.Empty;
+                response = response.Equals("Outage already exists.", StringComparison.CurrentCultureIgnoreCase) ? MessageConstants.OutageAlreadyExist : response;
 
                 await context.PostAsync(response);
             }
