@@ -31,7 +31,9 @@ namespace LUISPaymentBot.Dialogs
 
             if (occurance == 0)
             {
-                await context.PostAsync("Please enter your account number");
+                //await context.PostAsync(MessageConstants.EnterAcctNbr);
+                await context.SayAsync(MessageConstants.EnterAcctNbr, speak: MessageConstants.EnterAcctNbr);
+                //await context.SayAsync(MessageConstants.EnterAcctNbr, speak: MessageConstants.EnterAcctNbr, options: new MessageOptions() { InputHint = InputHints.ExpectingInput });
             }
             context.Wait(this.MessageReceivedAsync);
         }

@@ -190,7 +190,7 @@ namespace LUISPaymentBot.Dialogs
         public async Task GetLastPaidBill(IDialogContext context, IAwaitable<IMessageActivity> activity, LuisResult result)
         {
             var message = await activity;
-            await context.PostAsync($"Please wait we are retreiving the information");
+            //await context.PostAsync($"Please wait we are retreiving the information");
 
             EntityRecommendation entityRecommendation;
             AccountQuery accountQuery = new AccountQuery();

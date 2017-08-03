@@ -19,9 +19,11 @@ namespace LUISPaymentBot.Constants
 
         public const string WelcomeMsg = "Welcome to Utility Service Desk";
 
+        public const string EnterAcctNbr = "Please enter your account number";
+
         public const string Authenticated = "Hello {0}. How can i help you today?";
 
-        public const string ServicesInformation = "You can ask me to provide bill information, make payment and also report an outage";
+        public const string ServicesInformation = "You can ask me to provide current or last bill information, make payment and also report an outage";
 
         public const string LoginError = "We didn't find this account number on our records. Please enter a valid account number";
 

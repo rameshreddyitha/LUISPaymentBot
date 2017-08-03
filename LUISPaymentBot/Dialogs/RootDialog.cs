@@ -18,7 +18,8 @@ namespace LUISPaymentBot.Dialogs
     {
         public async Task StartAsync(IDialogContext context)
         {
-            await context.PostAsync(MessageConstants.WelcomeMsg);
+            //await context.PostAsync(MessageConstants.WelcomeMsg);
+            await context.SayAsync(MessageConstants.WelcomeMsg, speak: MessageConstants.WelcomeMsg);
             context.Wait(this.MessageReceivedAsync);
         }
 
