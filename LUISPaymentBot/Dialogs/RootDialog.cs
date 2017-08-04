@@ -74,8 +74,10 @@ namespace LUISPaymentBot.Dialogs
                 }
                 else
                 {
-                    await context.PostAsync(string.Format(MessageConstants.Authenticated, loginInfo.Name));
-                    await context.PostAsync(MessageConstants.ServicesInformation);
+                    await context.SayAsync(string.Format(MessageConstants.Authenticated, loginInfo.Name), speak: string.Format(MessageConstants.Authenticated, loginInfo.Name));
+                    await context.SayAsync(MessageConstants.ServicesInformation, MessageConstants.ServicesInformation);
+                    //await context.PostAsync(string.Format(MessageConstants.Authenticated, loginInfo.Name));
+                    //await context.PostAsync(MessageConstants.ServicesInformation);
                     context.Forward(new AccountDialog(loginInfo), this.ResumeScheduler, context.Activity, CancellationToken.None);
                 }
             }

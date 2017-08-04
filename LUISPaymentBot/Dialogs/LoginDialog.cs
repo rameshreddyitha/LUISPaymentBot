@@ -43,14 +43,16 @@ namespace LUISPaymentBot.Dialogs
             var message = await result;
             if (string.IsNullOrEmpty(message.Text))
             {
-                await context.PostAsync("Please enter your account number");
+                await context.SayAsync(MessageConstants.EnterAcctNbr, speak: MessageConstants.EnterAcctNbr);
+                //await context.PostAsync("Please enter your account number");
                 context.Wait(this.MessageReceivedAsync);
             }
             else
             {
                 this.UserName = message.Text.Replace("-", string.Empty);
 
-                await context.PostAsync(MessageConstants.PleaseWait);
+                await context.SayAsync(MessageConstants.PleaseWait, speak: MessageConstants.PleaseWait);
+                //await context.PostAsync(MessageConstants.PleaseWait);
                 HttpClient client = GetClient();
                 AuthenticateInput userInfo = new AuthenticateInput() { mbrsep = this.UserName, tokenpwd = "1" };
                 HttpResponseMessage response = await client.PostAsJsonAsync<AuthenticateInput>(ConfigurationManager.AppSettings["ValidateLogin"], userInfo);
